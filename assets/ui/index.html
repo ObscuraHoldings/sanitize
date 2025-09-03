@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Sanitize</title>
+    <style>
+      :root {
+        --bg-start: #1a2332;
+        --bg-end: #2d3748;
+        --surface: rgba(255, 255, 255, 0.98);
+        --text: #2d3748;
+        --muted: #718096;
+        --muted-2: #a0aec0;
+        --border: #e2e8f0;
+        --border-subtle: #f7fafc;
+        --success-bg: #c6f6d5;
+        --success-stroke: #22543d;
+        --danger-bg: #fed7d7;
+        --danger-fg: #c53030;
+        --shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+        --radius: 24px;
+        --card-w: 400px;
+        --card-min-h: 580px;
+        --progress-h: 2px;
+        --dot: 8px;
+        --t: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+          "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(
+          135deg,
+          var(--bg-start) 0%,
+          var(--bg-end) 100%
+        );
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .app-card {
+        background: var(--surface);
+        width: var(--card-w);
+        min-height: var(--card-min-h);
+        border-radius: var(--radius);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 48px;
+        box-shadow: var(--shadow);
+        position: relative;
+        transition: all var(--t);
+      }
+      .app-card[data-state="empty"],
+      .app-card[data-state="processing"],
+      .app-card[data-state="complete"],
+      .app-card[data-state="error"] {
+        justify-content: center;
+      }
+      .app-card[data-state="files-added"] {
+        justify-content: flex-start;
+        padding-top: 48px;
+      }
+      .app-card[data-state="details"] {
+        justify-content: flex-start;
+        padding: 32px;
+      }
+      .drop-zone {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+      .app-card[data-state="empty"] .drop-zone {
+        display: flex;
+      }
+      .drop-text {
+        font-size: 20px;
+        font-weight: 300;
+        color: #1a202c;
+        letter-spacing: 0.5px;
+      }
+      .drop-subtext {
+        font-size: 14px;
+        color: var(--muted);
+        margin-top: -8px;
+      }
+      .add-button {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: transparent;
+        border: 2px solid var(--border);
+        color: var(--muted-2);
+        font-size: 28px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .add-button:hover {
+        border-color: var(--text);
+        color: var(--text);
+        transform: scale(1.1) rotate(90deg);
+      }
+      .add-button:focus-visible {
+        outline: 3px solid var(--text);
+        outline-offset: 3px;
+      }
+      .files-section {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        align-items: center;
+      }
+      .app-card[data-state="files-added"] .files-section {
+        display: flex;
+      }
+      .file-count {
+        font-size: 14px;
+        color: var(--muted);
+        margin-bottom: 24px;
+        text-align: center;
+      }
+      .files-list {
+        width: 100%;
+        margin-bottom: 24px;
+      }
+      .file-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border-subtle);
+        opacity: 0;
+        animation: slideIn 0.4s ease forwards;
+      }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .file-item:nth-child(1) {
+        animation-delay: 0.1s;
+      }
+      .file-item:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .file-item:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      .file-icon {
+        width: 32px;
+        height: 32px;
+        background: var(--border-subtle);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 16px;
+        font-size: 14px;
+      }
+      .file-details {
+        flex: 1;
+      }
+      .file-name {
+        font-size: 14px;
+        color: var(--text);
+        font-weight: 500;
+      }
+      .file-size {
+        font-size: 12px;
+        color: var(--muted-2);
+      }
+      .file-remove {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #cbd5e0;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 20px;
+        border: 0;
+        background: transparent;
+      }
+      .file-remove:hover {
+        background: var(--danger-bg);
+        color: #e53e3e;
+      }
+      .file-remove:focus-visible {
+        outline: 3px solid var(--text);
+        outline-offset: 3px;
+      }
+      .processing-section {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+      }
+      .app-card[data-state="processing"] .processing-section {
+        display: flex;
+      }
+      .processing-icon {
+        width: 64px;
+        height: 64px;
+        border: 3px solid var(--border);
+        border-top-color: var(--text);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 24px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .status-text {
+        font-size: 16px;
+        color: var(--text);
+        margin-bottom: 8px;
+        text-align: center;
+      }
+      .status-detail {
+        font-size: 14px;
+        color: var(--muted);
+        margin-bottom: 24px;
+        text-align: center;
+      }
+      .progress-bar {
+        width: 240px;
+        height: var(--progress-h);
+        background: var(--border);
+        border-radius: 1px;
+        overflow: hidden;
+        margin-bottom: 24px;
+      }
+      .progress-fill {
+        height: 100%;
+        background: var(--text);
+        width: 0%;
+        transition: width 0.5s ease;
+      }
+      .complete-section {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+      }
+      .app-card[data-state="complete"] .complete-section {
+        display: flex;
+      }
+      .success-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: var(--success-bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 24px;
+        animation: scaleIn 0.4s ease;
+      }
+      @keyframes scaleIn {
+        from {
+          transform: scale(0);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .checkmark {
+        width: 32px;
+        height: 32px;
+        stroke: var(--success-stroke);
+        stroke-width: 3;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .summary-title {
+        font-size: 18px;
+        color: var(--text);
+        margin-bottom: 24px;
+        font-weight: 500;
+      }
+      .summary-stats {
+        display: flex;
+        gap: 32px;
+        justify-content: center;
+        margin-bottom: 32px;
+      }
+      .stat {
+        text-align: center;
+      }
+      .stat-value {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .stat-label {
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 4px;
+      }
+      .details-section {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+      }
+      .app-card[data-state="details"] .details-section {
+        display: flex;
+      }
+      .details-header {
+        width: 100%;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 24px;
+      }
+      .back-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 14px;
+        cursor: pointer;
+        transition: color 0.2s ease;
+        background: transparent;
+        border: 0;
+      }
+      .back-button:hover {
+        color: var(--text);
+      }
+      .back-button:focus-visible {
+        outline: 3px solid var(--text);
+        outline-offset: 3px;
+      }
+      .details-content {
+        width: 100%;
+        flex: 1;
+        overflow-y: auto;
+        margin-bottom: 24px;
+      }
+      .metadata-section {
+        margin-bottom: 20px;
+      }
+      .metadata-title {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+        margin-bottom: 12px;
+      }
+      .metadata-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        font-size: 13px;
+      }
+      .metadata-key {
+        color: var(--muted);
+      }
+      .removed-badge {
+        background: var(--danger-bg);
+        color: var(--danger-fg);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .error-section {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .app-card[data-state="error"] .error-section {
+        display: flex;
+      }
+      .error-title {
+        font-size: 16px;
+        color: var(--text);
+      }
+      .error-message {
+        font-size: 14px;
+        color: var(--muted);
+        max-width: 320px;
+      }
+      .preset-dots {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin: 32px 0;
+      }
+      .app-card[data-state="processing"] .preset-dots,
+      .app-card[data-state="complete"] .preset-dots,
+      .app-card[data-state="details"] .preset-dots {
+        display: none;
+      }
+      .preset-dot {
+        width: var(--dot);
+        height: var(--dot);
+        border-radius: 50%;
+        background: #e2e8f0;
+        cursor: pointer;
+        transition: transform 0.2s ease, background 0.2s ease;
+        border: 0;
+        padding: 0;
+      }
+      .preset-dot.active {
+        background: var(--text);
+        transform: scale(1.5);
+      }
+      .preset-dot:hover {
+        transform: scale(1.3);
+      }
+      .preset-dot:focus-visible {
+        outline: 3px solid var(--text);
+        outline-offset: 3px;
+      }
+      .preset-label {
+        margin-left: 16px;
+        font-size: 14px;
+        color: var(--muted);
+        font-weight: 400;
+        letter-spacing: 0.5px;
+      }
+      .output-mode {
+        display: none;
+        gap: 16px;
+        margin-bottom: 24px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .app-card[data-state="files-added"] .output-mode {
+        display: flex;
+      }
+      .output-option {
+        background: transparent;
+        border: 0;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        transition: color 0.2s ease;
+      }
+      .output-option.active {
+        color: var(--text);
+        font-weight: 500;
+      }
+      .output-option:focus-visible {
+        outline: 3px solid var(--text);
+        outline-offset: 3px;
+      }
+      .primary-button {
+        padding: 14px 40px;
+        background: transparent;
+        border: 1px solid var(--text);
+        border-radius: 24px;
+        font-size: 14px;
+        font-weight: 400;
+        letter-spacing: 1px;
+        color: var(--text);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+      }
+      .primary-button:hover:not(:disabled) {
+        background: var(--text);
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(45, 55, 72, 0.2);
+      }
+      .primary-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .primary-button:focus-visible {
+        outline: 3px solid var(--text);
+        outline-offset: 3px;
+      }
+      .secondary-button {
+        padding: 10px 24px;
+        background: transparent;
+        border: none;
+        font-size: 13px;
+        color: var(--muted);
+        cursor: pointer;
+        transition: color 0.2s ease;
+        text-decoration: underline;
+        margin-top: 16px;
+      }
+      .secondary-button:hover {
+        color: var(--text);
+      }
+      .secondary-button:focus-visible {
+        outline: 3px solid var(--text);
+        outline-offset: 3px;
+      }
+      .drop-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(45, 55, 72, 0.95);
+        border-radius: var(--radius);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+      .drop-overlay.active {
+        display: flex;
+      }
+      .drop-overlay-text {
+        color: #fff;
+        font-size: 20px;
+        font-weight: 300;
+        letter-spacing: 0.5px;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-card" data-state="empty" aria-live="polite">
+      <div class="drop-overlay" aria-hidden="true">
+        <div class="drop-overlay-text">Drop to add files</div>
+      </div>
+
+      <div class="drop-zone" role="button" aria-label="Add files">
+        <div class="drop-text">Drop files anywhere</div>
+        <div class="drop-subtext">or press +</div>
+        <button
+          class="add-button"
+          type="button"
+          onclick="addFiles()"
+          aria-label="Add files"
+        >
+          +
+        </button>
+      </div>
+
+      <section class="files-section" aria-label="Selected files">
+        <div class="file-count" id="file-count">0 files ready</div>
+        <div class="files-list" id="files-list"></div>
+      </section>
+
+      <section class="processing-section" aria-label="Processing">
+        <div class="processing-icon" aria-hidden="true"></div>
+        <div class="status-text" id="status-text">Sanitizing files</div>
+        <div class="status-detail" id="status-detail">Preparing…</div>
+        <div
+          class="progress-bar"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+          aria-live="polite"
+        >
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="file-count" id="progress-count">0 of 0 complete</div>
+      </section>
+
+      <section class="complete-section" aria-label="Complete">
+        <div class="success-icon" aria-hidden="true">
+          <svg class="checkmark" viewBox="0 0 24 24">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+        </div>
+        <div class="summary-title">Sanitization Complete</div>
+        <div class="summary-stats" id="summary-stats">
+          <div class="stat">
+            <div class="stat-value" id="stat-files">0</div>
+            <div class="stat-label">Files</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="stat-removed">0</div>
+            <div class="stat-label">Items Removed</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="stat-clean">0%</div>
+            <div class="stat-label">Clean</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="details-section" aria-label="Details">
+        <div class="details-header">
+          <button
+            class="back-button"
+            type="button"
+            onclick="backToSummary()"
+            aria-label="Back to summary"
+          >
+            <span>←</span><span>Back to summary</span>
+          </button>
+        </div>
+        <div class="details-content" id="details-content"></div>
+      </section>
+
+      <section class="error-section" aria-label="Error">
+        <div class="error-title" id="error-title">Something went wrong</div>
+        <div class="error-message" id="error-message">
+          An unexpected error occurred while sanitizing files.
+        </div>
+      </section>
+
+      <div class="preset-dots" aria-label="Preset">
+        <button
+          class="preset-dot"
+          type="button"
+          aria-label="Safe preset"
+          onclick="setPreset(0)"
+        ></button>
+        <button
+          class="preset-dot active"
+          type="button"
+          aria-label="Balanced preset"
+          onclick="setPreset(1)"
+        ></button>
+        <button
+          class="preset-dot"
+          type="button"
+          aria-label="Aggressive preset"
+          onclick="setPreset(2)"
+        ></button>
+        <span class="preset-label" id="preset-label">Balanced</span>
+      </div>
+
+      <div class="output-mode" aria-label="Output mode">
+        <button
+          class="output-option active"
+          type="button"
+          onclick="setOutput(0)"
+          aria-pressed="true"
+        >
+          Replace
+        </button>
+        <span>·</span>
+        <button
+          class="output-option"
+          type="button"
+          onclick="setOutput(1)"
+          aria-pressed="false"
+        >
+          Backup
+        </button>
+        <span>·</span>
+        <button
+          class="output-option"
+          type="button"
+          onclick="setOutput(2)"
+          aria-pressed="false"
+        >
+          Export
+        </button>
+      </div>
+
+      <button
+        class="primary-button"
+        id="primary"
+        type="button"
+        onclick="primaryAction()"
+        disabled
+      >
+        Continue
+      </button>
+      <button
+        class="secondary-button"
+        id="secondary"
+        type="button"
+        onclick="secondaryAction()"
+        style="display: none"
+      >
+        Add More Files
+      </button>
+
+      <div class="sr-only" id="live" aria-live="polite"></div>
+    </main>
+
+    <script>
+      "use strict";
+      const card = document.querySelector(".app-card");
+      const primaryBtn = document.getElementById("primary");
+      const secondaryBtn = document.getElementById("secondary");
+      const progressFill = document.getElementById("progress-fill");
+      const progressBar = document.querySelector(".progress-bar");
+      const progressCount = document.getElementById("progress-count");
+      const statusText = document.getElementById("status-text");
+      const statusDetail = document.getElementById("status-detail");
+      const presetLabel = document.getElementById("preset-label");
+      const live = document.getElementById("live");
+      const filesList = document.getElementById("files-list");
+      const fileCountEl = document.getElementById("file-count");
+
+      function announce(msg) {
+        live.textContent = msg;
+      }
+      function setState(state) {
+        card.setAttribute("data-state", state);
+        updateButton(state);
+        if (state === "processing") {
+          progressBar.setAttribute("aria-valuenow", "0");
+          progressFill.style.width = "0%";
+        }
+        if (state === "error") {
+          primaryBtn.disabled = false;
+          primaryBtn.textContent = "Try Again";
+          secondaryBtn.style.display = "none";
+        }
+      }
+      function updateButton(state) {
+        switch (state) {
+          case "empty":
+            primaryBtn.textContent = "Continue";
+            primaryBtn.disabled = true;
+            secondaryBtn.style.display = "none";
+            break;
+          case "files-added":
+            primaryBtn.textContent = "Sanitize";
+            primaryBtn.disabled = false;
+            secondaryBtn.style.display = "none";
+            break;
+          case "processing":
+            primaryBtn.textContent = "Processing...";
+            primaryBtn.disabled = true;
+            secondaryBtn.style.display = "none";
+            break;
+          case "complete":
+            primaryBtn.textContent = "View Details";
+            primaryBtn.disabled = false;
+            secondaryBtn.style.display = "block";
+            secondaryBtn.textContent = "Add More Files";
+            break;
+          case "details":
+            primaryBtn.textContent = "Export Report";
+            primaryBtn.disabled = false;
+            secondaryBtn.style.display = "none";
+            break;
+          case "error":
+            primaryBtn.textContent = "Try Again";
+            primaryBtn.disabled = false;
+            secondaryBtn.style.display = "none";
+            break;
+        }
+      }
+
+      async function primaryAction() {
+        const currentState = card.getAttribute("data-state");
+        switch (currentState) {
+          case "files-added":
+            await startProcessing();
+            break;
+          case "complete":
+            setState("details");
+            break;
+          case "details":
+            announce("Exporting report");
+            if (window.pywebview?.api?.export_report) {
+              try {
+                const p = await window.pywebview.api.export_report();
+                if (p) announce(`Report saved to ${p}`);
+              } catch {}
+            }
+            break;
+          case "error":
+            tryAgain();
+            break;
+        }
+      }
+      function secondaryAction() {
+        setState("empty");
+        clearList();
+      }
+
+      async function addFiles() {
+        if (window.pywebview?.api?.choose_files) {
+          const items = await window.pywebview.api.choose_files();
+          populateFiles(items);
+          updateFileCount();
+          if (items && items.length) setState("files-added");
+        }
+      }
+      function addFileItem(name, size, id) {
+        const item = document.createElement("div");
+        item.className = "file-item";
+        if (id) item.dataset.id = id;
+        item.innerHTML = `<div class="file-icon">📄</div><div class="file-details"><div class="file-name">${name}</div><div class="file-size">${size}</div></div><button class="file-remove" type="button" aria-label="Remove ${name}" onclick="removeFile(this)">×</button>`;
+        filesList.appendChild(item);
+      }
+      async function removeFile(buttonEl) {
+        const item = buttonEl.closest(".file-item");
+        if (item) {
+          const id = item.dataset.id;
+          if (id && window.pywebview?.api?.remove_file) {
+            try {
+              await window.pywebview.api.remove_file(id);
+            } catch {}
+          }
+          item.remove();
+        }
+        if (!filesList.children.length) {
+          setState("empty");
+          fileCountEl.textContent = "0 files ready";
+        } else {
+          updateFileCount();
+        }
+      }
+      function updateFileCount() {
+        const n = filesList.children.length;
+        fileCountEl.textContent = `${n} file${n === 1 ? "" : "s"} ready`;
+      }
+      function clearList() {
+        filesList.innerHTML = "";
+        fileCountEl.textContent = "0 files ready";
+      }
+
+      async function startProcessing() {
+        if (window.pywebview?.api?.start_processing) {
+          try {
+            await window.pywebview.api.start_processing();
+          } catch {}
+        }
+      }
+      function backToSummary() {
+        setState("complete");
+      }
+      function tryAgain() {
+        setState(filesList.children.length ? "files-added" : "empty");
+      }
+
+      async function setPreset(index) {
+        const dots = document.querySelectorAll(".preset-dot");
+        const labels = ["Safe", "Balanced", "Aggressive"];
+        dots.forEach((dot, i) => {
+          dot.classList.toggle("active", i === index);
+        });
+        presetLabel.textContent = labels[index];
+        announce(`Preset ${labels[index]} selected`);
+        if (window.pywebview?.api?.set_preset) {
+          try {
+            await window.pywebview.api.set_preset(labels[index].toLowerCase());
+          } catch {}
+        }
+      }
+      async function setOutput(index) {
+        const options = document.querySelectorAll(".output-option");
+        options.forEach((opt, i) => {
+          const active = i === index;
+          opt.classList.toggle("active", active);
+          opt.setAttribute("aria-pressed", String(active));
+        });
+        announce(`Output mode ${options[index].textContent} selected`);
+        if (window.pywebview?.api?.set_output_mode) {
+          try {
+            await window.pywebview.api.set_output_mode(
+              options[index].textContent.toLowerCase()
+            );
+          } catch {}
+        }
+      }
+
+      const dropOverlay = document.querySelector(".drop-overlay");
+      card.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropOverlay.classList.add("active");
+      });
+      card.addEventListener("dragleave", (e) => {
+        if (e.target === card) dropOverlay.classList.remove("active");
+      });
+      card.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        dropOverlay.classList.remove("active");
+        const files = Array.from(e.dataTransfer?.files || []);
+        const paths = files.map((f) => f.path).filter(Boolean);
+        if (paths.length && window.pywebview?.api?.add_paths) {
+          try {
+            const items = await window.pywebview.api.add_paths(paths);
+            populateFiles(items);
+            updateFileCount();
+            if (items && items.length) setState("files-added");
+          } catch {}
+        }
+      });
+
+      function populateFiles(items) {
+        for (const it of items || []) {
+          const size = it.size ? formatSize(it.size) : "";
+          addFileItem(it.name || "file", size, it.id);
+        }
+      }
+      function formatSize(n) {
+        if (n === undefined || n === null) return "";
+        const kb = 1024,
+          mb = kb * 1024;
+        if (n >= mb) return (n / mb).toFixed(1) + " MB";
+        if (n >= kb) return Math.round(n / kb) + " KB";
+        return n + " B";
+      }
+
+      // Initialize defaults
+      setPreset(1);
+      setOutput(0);
+      setState("empty");
+    </script>
+  </body>
+</html>

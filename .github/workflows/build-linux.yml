@@ -1,0 +1,28 @@
+name: build-linux
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install . pyinstaller
+      - name: Build binary
+        run: |
+          pyinstaller --noconfirm --windowed --name Sanitize \
+            --add-data "assets/ui/index.html:assets/ui/index.html" \
+            src/sanitize/app.py
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sanitize-linux
+          path: dist/Sanitize/**
+          if-no-files-found: error

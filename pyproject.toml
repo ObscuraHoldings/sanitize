@@ -1,0 +1,39 @@
+[project]
+name = "sanitize"
+version = "0.1.0"
+description = "Cross-platform document sanitizer (single binary, GUI by default; headless with flags)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Your Name" }]
+dependencies = [
+  "pikepdf>=9.0.0",
+  "pywebview>=4.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/your/repo"
+Issues = "https://github.com/your/repo/issues"
+
+[project.scripts]
+sanitize = "sanitize.app:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E","F","I","UP","B","SIM","RUF"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+
