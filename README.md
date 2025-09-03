@@ -13,7 +13,7 @@
 
 ## Overview
 
-Sanitize is a privacy-first document sanitizer that removes sensitive metadata and active content from PDF and DOCX files. It ships as a single application per OS that launches a minimal, focused GUI by default and also supports headless operation for automation.
+Cross-platform document sanitizer that removes sensitive metadata and active content from PDF and DOCX files. Features a minimal GUI by default with headless automation support. Privacy-first design with zero telemetry, atomic writes, and comprehensive JSON reporting for auditing. It ships as a single application per OS that launches a minimal, focused GUI by default and also supports headless operation for automation.
 
 ### Key Features
 
